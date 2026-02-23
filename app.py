@@ -33,7 +33,7 @@ def get_ria_response():
         # Chota model use kar rahe hain taaki Rate Limit error na aaye
         completion = client.chat.completions.create(
             model="llama3-8b-8192", 
-            messages=st.session_state.messages[-10:] # Sirf last 10 baatein
+            messages=st.session_state.messages[-5:] # Sirf last 10 baatein
         )
         return completion.choices[0].message.content
     except Exception as e:
