@@ -22,7 +22,7 @@ def get_ria_response():
     try:
         # Chota model use kar rahe hain taaki Rate Limit na aaye
         completion = client.chat.completions.create(
-            model="llama3-8b-8192", 
+            model="llama-3.1-8b-instant", 
             messages=st.session_state.messages[-5:]
         )
         return completion.choices[0].message.content
