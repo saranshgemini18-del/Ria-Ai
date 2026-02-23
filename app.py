@@ -30,7 +30,7 @@ if prompt := st.chat_input("GUEST@LOCAL_HOST:~ $"):
     # Response logic
     with st.chat_message("assistant"):
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama3-8b-8192",
             messages=st.session_state.messages
         )
         reply = completion.choices[0].message.content
