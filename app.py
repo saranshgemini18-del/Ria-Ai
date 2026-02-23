@@ -4,8 +4,11 @@ from groq import Groq
 # Header jo terminal jaisa dikhe
 st.markdown("### < SYSTEM: FRIEND_LINK_INITIALIZED >")
 
-# Groq setup
-client = Groq(api_key="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")
+try:
+    api_key = st.secrets["GROQ_API_KEY"]
+    client = Groq(api_key=api_key)
+except Exception as e:
+    st.error("Bhai, API Key nahi mil rahi! Streamlit Settings mein check kar.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
