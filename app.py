@@ -1,38 +1,54 @@
 import streamlit as st
 from groq import Groq
+import requests
+import json
 
-# Header jo terminal jaisa dikhe
-st.markdown("### < SYSTEM: FRIEND_LINK_INITIALIZED >")
+# 1. Groq Setup
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-try:
-    api_key = st.secrets["GROQ_API_KEY"]
-    client = Groq(api_key=api_key)
-except Exception as e:
-    st.error("Bhai, API Key nahi mil rahi! Streamlit Settings mein check kar.")
+# 2. Firebase URL (Tera wala)
+DB_URL = "https://my-ai-9791f-default-rtdb.firebaseio.com"
+
+st.title("Ria AI - Chill Bestie 💁‍♀️")
+
+# Sidebar mein user ka naam
+user_name = st.sidebar.text_input("Tera Naam?", "Guest").strip().replace(" ", "_")
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are Ria, a chill Indian female best friend. Use Hinglish and emojis. Keep it fun! 🚀"}
-    ]
+    st.session_state.messages = []
 
-# Chat display
+# 3. Chat Logic
+def get_ria_response():
+    try:
+        # Chota model use kar rahe hain taaki Rate Limit na aaye
+        completion = client.chat.completions.create(
+            model="llama-3-1-8b-instant", 
+            messages=st.session_state.messages[-5:]
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Arre yaar, dimag thak gaya! (Wait kar thoda): {e}"
+
+# UI Layout
 for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# User input
-if prompt := st.chat_input("GUEST@LOCAL_HOST:~ $"):
+if prompt := st.chat_input("Bol na bhai..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
-        st.write(prompt)
+        st.markdown(prompt)
 
-    # Response logic
+    # Ria ka Reply
+    response = get_ria_response()
+    
     with st.chat_message("assistant"):
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=st.session_state.messages
-        )
-        reply = completion.choices[0].message.content
-        st.write(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+        st.markdown(response)
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # 4. Database mein Save karna (Simple & Fast)
+    try:
+        chat_data = {"user": prompt, "ria": response}
+        requests.post(f"{DB_URL}/chats/{user_name}.json", json=chat_data)
+    except:
+        pass
