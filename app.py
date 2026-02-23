@@ -5,7 +5,7 @@ import json
 
 # --- 1. CONFIGURATION ---
 # Model ko Llama 3.2 rakha hai kyunki ye fast aur active hai
-MODEL_NAME = "llama-3.2-3b-preview"
+MODEL_NAME = "llama-3.1-8b-instant"
 DB_URL = "https://my-ai-9791f-default-rtdb.firebaseio.com"
 
 # --- 2. SETUP & INITIALIZATION ---
