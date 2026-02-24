@@ -2,112 +2,92 @@ import streamlit as st
 from groq import Groq
 import requests
 import datetime
-from streamlit_google_auth import Authenticate
 
-# --- 1. CONFIG & AUTH SETUP ---
+# --- CONFIG ---
 DB_URL = "https://my-ai-9791f-default-rtdb.firebaseio.com"
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Google Login Setup
-# --- GOOGLE AUTH SETUP (New Method) ---
-# Naye version mein 'secret_credentials_path' ya 'credentials' dictionary chahiye hoti hai
-auth_config = {
-    "web": {
-        "client_id": st.secrets["google_client_id"],
-        "client_secret": st.secrets["google_client_secret"],
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "redirect_uris": ["https://friendai.streamlit.app"]
-    }
-}
-   # --- GOOGLE AUTH SETUP (File Path Method) ---
-try:
-    authenticator = Authenticate(
-        secret_credentials_path="google_creds.json", # Ab ye seedha file uthayega
-        cookie_name='ria_auth_cookie',
-        cookie_key='ria_signature_key',
-        cookie_expiry_days=30,
-        redirect_uri="https://friendai.streamlit.app" # JSON file se match hona chahiye
-    )
-except Exception as e:
-    st.error(f"Auth Setup Fail: {e}")
-    st.stop()
-# System Persona
-system_prompt = {"role": "system", "content": "Tu Ria hai, ek chill Indian bestie. Hinglish mein baat kar. Short aur witty ban. 'Bro' aur 'Yaar' touch rakh."}
+st.set_page_config(page_title="Ria AI", page_icon="💁‍♀️")
+system_prompt = {"role": "system", "content": "Tu Ria hai, ek chill Indian bestie. Hinglish mein baat kar. Short aur witty ban. 'Bro' aur 'Yaar' use kar."}
 
-# --- 2. SIDEBAR & LOGIN LOGIC ---
-if not st.session_state.get('connected'):
-    st.title("Ria AI - Teri Bestie 💁‍♀️")
-    st.write("Bhai, pehle Google se login toh kar le, fir baatein karenge!")
-    authenticator.login()
-    st.stop()
-
-# Agar connected hai toh user ka data nikal lo
-user_info = st.session_state['user_info']
-u_name = user_info['name']
-u_email = user_info['email'].replace(".", "_") # Firebase dot nahi leta
-
-st.sidebar.image(user_info['picture'], width=80)
-st.sidebar.write(f"Kaisi hai meri jaan, **{u_name}**? ✨")
-
-# --- 3. SESSION STATES & HISTORY ---
+# --- SESSION STATES ---
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+if "user_id" not in st.session_state: st.session_state.user_id = None
 if "messages" not in st.session_state: st.session_state.messages = [system_prompt]
 if "chat_id" not in st.session_state: st.session_state.chat_id = None
 
-# History fetch function
-def get_user_chats(email):
-    res = requests.get(f"{DB_URL}/history/{email}.json").json()
+# --- AUTH FUNCTIONS (DESI STYLE) ---
+def login(u, p):
+    res = requests.get(f"{DB_URL}/users/{u}.json").json()
+    return True if res and res['pass'] == p else False
+
+def signup(u, p):
+    if requests.get(f"{DB_URL}/users/{u}.json").json(): return False
+    requests.put(f"{DB_URL}/users/{u}.json", json={"pass": p})
+    return True
+
+def get_user_chats(username):
+    res = requests.get(f"{DB_URL}/history/{username}.json").json()
     return res if res else {}
 
-# New Chat Button
-if st.sidebar.button("➕ New Chat"):
-    st.session_state.messages = [system_prompt]
-    st.session_state.chat_id = None
-    st.rerun()
+# --- SIDEBAR ---
+st.sidebar.title("Ria's Hub 💁‍♀️")
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Pichli Baatein")
-
-# Show History List
-user_chats = get_user_chats(u_email)
-for c_id in reversed(list(user_chats.keys())):
-    if st.sidebar.button(f"💬 {user_chats[c_id]['title']}", key=c_id):
-        st.session_state.messages = [system_prompt] + user_chats[c_id]['msgs']
-        st.session_state.chat_id = c_id
+if not st.session_state.logged_in:
+    choice = st.sidebar.radio("Login/Signup", ["Login", "Signup"])
+    u = st.sidebar.text_input("Username").lower()
+    p = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Go"):
+        if choice == "Signup":
+            if signup(u, p): st.sidebar.success("Account ready! Login karo.")
+            else: st.sidebar.error("Username pehle se hai!")
+        elif login(u, p):
+            st.session_state.logged_in, st.session_state.user_id = True, u
+            st.rerun()
+        else: st.sidebar.error("Galat Password!")
+else:
+    st.sidebar.write(f"Kaisi hai meri bestie, **{st.session_state.user_id}**! ✨")
+    
+    if st.sidebar.button("➕ New Chat"):
+        st.session_state.messages = [system_prompt]
+        st.session_state.chat_id = None
         st.rerun()
 
-if st.sidebar.button("Logout"):
-    authenticator.logout()
-    st.rerun()
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Pichli Baatein")
+    
+    user_chats = get_user_chats(st.session_state.user_id)
+    for c_id in reversed(list(user_chats.keys())):
+        if st.sidebar.button(f"💬 {user_chats[c_id]['title']}", key=c_id):
+            st.session_state.messages = [system_prompt] + user_chats[c_id]['msgs']
+            st.session_state.chat_id = c_id
+            st.rerun()
 
-# --- 4. CHAT INTERFACE ---
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+# --- CHAT INTERFACE ---
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
 if prompt := st.chat_input("Bol na yaar..."):
-    # Create session if new
-    if not st.session_state.chat_id:
+    if not st.session_state.chat_id and st.session_state.logged_in:
         st.session_state.chat_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         st.session_state.chat_title = prompt[:20] + "..."
 
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"): st.markdown(prompt)
 
-    # Groq Response (Using Llama 3.1 8B for logged in users)
     try:
-        res = client.chat.completions.create(
-            model="llama-3.1-8b-instant", 
-            messages=st.session_state.messages[-10:]
-        ).choices[0].message.content
-    except Exception as e: res = f"Limit hit yaar! {e}"
+        model = "llama-3.1-8b-instant" if st.session_state.logged_in else "llama-3.3-70b-versatile"
+        res = client.chat.completions.create(model=model, messages=st.session_state.messages[-10:]).choices[0].message.content
+    except Exception as e: res = f"Limit hit! {e}"
 
     with st.chat_message("assistant"): st.markdown(res)
     st.session_state.messages.append({"role": "assistant", "content": res})
 
-    # Save to Firebase
-    chat_data = {
-        "title": st.session_state.chat_title,
-        "msgs": st.session_state.messages[1:]
-    }
-    requests.put(f"{DB_URL}/history/{u_email}/{st.session_state.chat_id}.json", json=chat_data)
+    if st.session_state.logged_in:
+        chat_data = {"title": st.session_state.chat_title, "msgs": st.session_state.messages[1:]}
+        requests.put(f"{DB_URL}/history/{st.session_state.user_id}/{st.session_state.chat_id}.json", json=chat_data)
