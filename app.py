@@ -32,10 +32,6 @@ try:
 except Exception as e:
     st.error(f"Auth Setup Fail: {e}")
     st.stop()
-    )
-except Exception as e:
-    st.error(f"Auth Setup Fail: {e}")
-    st.stop()
 # System Persona
 system_prompt = {"role": "system", "content": "Tu Ria hai, ek chill Indian bestie. Hinglish mein baat kar. Short aur witty ban. 'Bro' aur 'Yaar' touch rakh."}
 
