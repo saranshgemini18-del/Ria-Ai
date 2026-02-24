@@ -20,14 +20,18 @@ auth_config = {
         "redirect_uris": ["https://friendai.streamlit.app"]
     }
 }
-
+   # --- GOOGLE AUTH SETUP (File Path Method) ---
 try:
     authenticator = Authenticate(
-        secret_credentials_path=auth_config, # Direct dictionary pass kar rahe hain
+        secret_credentials_path="google_creds.json", # Ab ye seedha file uthayega
         cookie_name='ria_auth_cookie',
         cookie_key='ria_signature_key',
         cookie_expiry_days=30,
-        redirect_uri="https://friendai.streamlit.app"
+        redirect_uri="https://friendai.streamlit.app" # JSON file se match hona chahiye
+    )
+except Exception as e:
+    st.error(f"Auth Setup Fail: {e}")
+    st.stop()
     )
 except Exception as e:
     st.error(f"Auth Setup Fail: {e}")
