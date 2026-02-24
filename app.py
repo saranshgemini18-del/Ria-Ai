@@ -16,7 +16,7 @@ authenticator = Authenticate(
     cookie_expiry_days=30,
     client_id=st.secrets["google_client_id"],
     client_secret=st.secrets["google_client_secret"],
-    redirect_uri="https://ria-ai.streamlit.app", # Apna sahi URL daalna
+    redirect_uri="https://friendai.streamlit.app", # Apna sahi URL daalna
 )
 
 # Authentication check
