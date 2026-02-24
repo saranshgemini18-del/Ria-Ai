@@ -9,15 +9,30 @@ DB_URL = "https://my-ai-9791f-default-rtdb.firebaseio.com"
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # Google Login Setup
-authenticator = Authenticate(
-    client_id=st.secrets["google_client_id"],
-    client_secret=st.secrets["google_client_secret"],
-    redirect_uri="https://friendai.streamlit.app", # Jo file mein hai wahi dalo
-    cookie_name='ria_auth_cookie',
-    cookie_key='ria_signature_key',
-    cookie_expiry_days=30,
-)
-# Authentication check
+# --- GOOGLE AUTH SETUP (New Method) ---
+# Naye version mein 'secret_credentials_path' ya 'credentials' dictionary chahiye hoti hai
+auth_config = {
+    "web": {
+        "client_id": st.secrets["google_client_id"],
+        "client_secret": st.secrets["google_client_secret"],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "redirect_uris": ["https://friendai.streamlit.app"]
+    }
+}
+
+try:
+    authenticator = Authenticate(
+        secret_credentials_path=auth_config, # Direct dictionary pass kar rahe hain
+        cookie_name='ria_auth_cookie',
+        cookie_key='ria_signature_key',
+        cookie_expiry_days=30,
+        redirect_uri="https://friendai.streamlit.app"
+    )
+except Exception as e:
+    st.error(f"Auth Setup Fail: {e}")
+    st.stop()
+    # Authentication check
 authenticator.check_authenticity()
 
 # System Persona
