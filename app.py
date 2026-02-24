@@ -10,15 +10,13 @@ client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # Google Login Setup
 authenticator = Authenticate(
-    secret_credentials_path=None, # Hum secrets se uthayenge
+    client_id=st.secrets["google_client_id"],
+    client_secret=st.secrets["google_client_secret"],
+    redirect_uri="https://friendai.streamlit.app", # Jo file mein hai wahi dalo
     cookie_name='ria_auth_cookie',
     cookie_key='ria_signature_key',
     cookie_expiry_days=30,
-    client_id=st.secrets["google_client_id"],
-    client_secret=st.secrets["google_client_secret"],
-    redirect_uri="https://friendai.streamlit.app", # Apna sahi URL daalna
 )
-
 # Authentication check
 authenticator.check_authenticity()
 
