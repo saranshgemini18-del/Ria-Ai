@@ -1,85 +1,101 @@
 import streamlit as st
 from groq import Groq
 import requests
-import json
+import datetime
 
-# --- 1. CONFIGURATION ---
-# Model ko Llama 3.2 rakha hai kyunki ye fast aur active hai
-MODEL_NAME = "llama-3.1-8b-instant"
+# --- CONFIG ---
 DB_URL = "https://my-ai-9791f-default-rtdb.firebaseio.com"
-
-# --- 2. SETUP & INITIALIZATION ---
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 st.set_page_config(page_title="Ria AI", page_icon="💁‍♀️")
-st.title("Ria AI - Teri Chill Bestie 💁‍♀️")
+system_prompt = {"role": "system", "content": "Tu Ria hai, ek chill Indian bestie. Hinglish mein baat kar. Short aur witty ban."}
 
-# Sidebar for User Profile
-st.sidebar.title("Ria's Settings")
-user_name = st.sidebar.text_input("Tera Naam?", "Guest").strip().replace(" ", "_")
+# --- SESSION STATES ---
+if "logged_in" not in st.session_state: st.session_state.logged_in = False
+if "user_id" not in st.session_state: st.session_state.user_id = None
+if "messages" not in st.session_state: st.session_state.messages = [system_prompt]
+if "chat_id" not in st.session_state: st.session_state.chat_id = None
 
-# System Instruction: Ria ki Personality
-system_prompt = {
-    "role": "system",
-    "content": "Tu Ria hai, ek chill Indian female best friend. Tera style desi aur cool hai. Hinglish mein baat kar. Short, witty answers de. Emoji use kar. 'Bro' aur 'Yaar' wala touch rakh. Tu hamesha supportive aur funny rehti hai."
-}
+# --- AUTH & DB FUNCTIONS ---
+def login(u, p):
+    res = requests.get(f"{DB_URL}/users/{u}.json").json()
+    return True if res and res['pass'] == p else False
 
-# Chat history initialization
-if "messages" not in st.session_state:
-    st.session_state.messages = [system_prompt]
+def signup(u, p):
+    if requests.get(f"{DB_URL}/users/{u}.json").json(): return False
+    requests.put(f"{DB_URL}/users/{u}.json", json={"pass": p})
+    return True
 
-# --- 3. FUNCTIONS ---
-def get_ria_response():
-    try:
-        # Sirf aakhri 6 messages bhej rahe hain taaki Rate Limit na aaye
-        chat_context = [st.session_state.messages[0]] + st.session_state.messages[-5:]
-        
-        completion = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=chat_context,
-            temperature=0.7,
-            max_tokens=500
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"Arre yaar, dimag thak gaya! Thoda wait kar le: {str(e)}"
+def get_user_chats(username):
+    res = requests.get(f"{DB_URL}/history/{username}.json").json()
+    return res if res else {}
 
-def save_to_firebase(user, prompt, response):
-    try:
-        chat_data = {
-            "user": prompt,
-            "ria": response
-        }
-        # Realtime Database mein data push karna
-        requests.post(f"{DB_URL}/chats/{user}.json", json=chat_data)
-    except Exception as e:
-        print(f"Firebase Error: {e}")
+# --- SIDEBAR ---
+st.sidebar.title("Ria AI 💁‍♀️")
 
-# --- 4. CHAT INTERFACE ---
+if not st.session_state.logged_in:
+    choice = st.sidebar.radio("Login/Signup", ["Login", "Signup"])
+    u = st.sidebar.text_input("Username").lower()
+    p = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Go"):
+        if choice == "Signup":
+            if signup(u, p): st.sidebar.success("Account ready!")
+            else: st.sidebar.error("User exists!")
+        elif login(u, p):
+            st.session_state.logged_in, st.session_state.user_id = True, u
+            st.rerun()
+else:
+    st.sidebar.write(f"Hi **{st.session_state.user_id}**! ✨")
+    
+    # New Chat Button
+    if st.sidebar.button("➕ New Chat"):
+        st.session_state.messages = [system_prompt]
+        st.session_state.chat_id = None
+        st.rerun()
 
-# Purani chats dikhana (system prompt ko chhupakar)
-for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Pichli Baatein (History)")
+    
+    # History List
+    user_chats = get_user_chats(st.session_state.user_id)
+    for c_id in reversed(list(user_chats.keys())):
+        if st.sidebar.button(f"💬 {user_chats[c_id]['title']}", key=c_id):
+            st.session_state.messages = [system_prompt] + user_chats[c_id]['msgs']
+            st.session_state.chat_id = c_id
+            st.rerun()
 
-# User Input
-if prompt := st.chat_input("Bol na bhai..."):
-    # User message add karo
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+# --- MAIN CHAT INTERFACE ---
+for msg in st.session_state.messages:
+    if msg["role"] != "system":
+        with st.chat_message(msg["role"]): st.markdown(msg["content"])
+
+if prompt := st.chat_input("Bol na yaar..."):
+    # First message in new chat creates a Chat ID
+    if not st.session_state.chat_id and st.session_state.logged_in:
+        st.session_state.chat_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        chat_title = prompt[:20] + "..."
+        st.session_state.chat_title = chat_title
+
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+    with st.chat_message("user"): st.markdown(prompt)
 
-    # Ria ka reply generate karo
-    with st.chat_message("assistant"):
-        response = get_ria_response()
-        st.markdown(response)
-    
-    # History update karo
-    st.session_state.messages.append({"role": "assistant", "content": response})
-    
-    # Database mein save karo
-    save_to_firebase(user_name, prompt, response)
+    # AI Response
+    try:
+        model = "llama-3.1-8b-instant" if st.session_state.logged_in else "llama-3.3-70b-versatile"
+        res = client.chat.completions.create(model=model, messages=st.session_state.messages[-10:]).choices[0].message.content
+    except Exception as e: res = f"Limit hit! {e}"
 
-st.sidebar.markdown("---")
-st.sidebar.write(f"Logged in as: **{user_name}**")
+    with st.chat_message("assistant"): st.markdown(res)
+    st.session_state.messages.append({"role": "assistant", "content": res})
+
+    # Save to Firebase if logged in
+    if st.session_state.logged_in:
+        chat_data = {
+            "title": st.session_state.chat_title,
+            "msgs": st.session_state.messages[1:] # skip system prompt
+        }
+        requests.put(f"{DB_URL}/history/{st.session_state.user_id}/{st.session_state.chat_id}.json", json=chat_data)
